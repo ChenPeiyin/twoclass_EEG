@@ -53,7 +53,7 @@ def pre_train_GCN(learning_rate, l2_regularization, hidden_size, len_src, len_ta
     adjacency = torch.FloatTensor(np.array(adjacency)).to(device)
     masked_index = np.random.randint(0, 16)  # masked channel
 
-    tuh_path = r'E:\damo\data_extract_TUH\data_extract\filter'
+    tuh_path = '../data_extract_TUH/data_extract/filter'
     tuh_data1 = []
     tuh_data2 = []
     for folder in os.listdir(tuh_path):
@@ -357,10 +357,10 @@ if __name__ == '__main__':
             'hidden_size': (5, 8),
             'learning_rate': (-7, -2),
             'l2_regularization': (-6, -1),
-            'len_src':(0.3, 0.5),
-            'len_tar': (0.3, 0.5),
-            'alpha': (0.5, 1),
-            'beta': (0.5, 1)
+            'len_src':(0.1, 0.4),
+            'len_tar': (0.1, 0.4),
+            'alpha': (0.3, 1),
+            'beta': (0.3, 1)
         }
     )
     reward_train.maximize(n_iter=100)
