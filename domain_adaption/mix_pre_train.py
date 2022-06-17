@@ -1,9 +1,12 @@
 import numpy as np
 import os
+import os.path as osp
+import datetime
 from GCN import Model, GradientReverseLayer
 from util import *
 import torch
 from sklearn import preprocessing
+from scipy.io import savemat
 import torch.nn.functional as F
 import torch.nn as nn
 import logging
@@ -88,7 +91,7 @@ def pre_train_GCN(learning_rate, l2_regularization, hidden_size, len_src, len_ta
                             tuh_data2[1].reshape(len(tuh_data2[1]), -1),
                             tuh_data2[2].reshape(len(tuh_data2[2]), -1)), axis=-1)
 
-    src_path = r'E:\damo\data_sample\data_sample\source'
+    src_path = "../data_sample/data_sample/source"
     src_data1 = []
     src_data2 = []
     src_label = []
@@ -127,7 +130,7 @@ def pre_train_GCN(learning_rate, l2_regularization, hidden_size, len_src, len_ta
                               src_data2[2].reshape(len(src_data2[2]), -1),
                               src_data1[0].reshape(len(src_data1[0]), -1)), axis=-1)  # (188, 386)
 
-    tar_path = r'E:\damo\data_sample\data_sample\target'
+    tar_path = "../data_sample/data_sample/target"
     tar_data1 = []
     tar_data2 = []
     tar_label = []
@@ -352,15 +355,22 @@ def pre_train_GCN(learning_rate, l2_regularization, hidden_size, len_src, len_ta
 
 if __name__ == '__main__':
     # save_logging('pre_train_mask_generation_TUH.log')
+    log_file = '%s.txt' % datetime.date.today()
+    working_dir = osp.dirname(osp.abspath(__file__))
+
+    logs_dir = osp.join(working_dir, 'logs')
+    if not osp.isdir(logs_dir):
+        os.makedirs(logs_dir)
+
     reward_train = BayesianOptimization(
         pre_train_GCN, {
             'hidden_size': (5, 8),
             'learning_rate': (-7, -2),
             'l2_regularization': (-6, -1),
-            'len_src':(0.1, 0.4),
-            'len_tar': (0.1, 0.4),
-            'alpha': (0.3, 1),
-            'beta': (0.3, 1)
+            'len_src': (0.3, 0.5),
+            'len_tar': (0.3, 0.5),
+            'alpha': (0.5, 1),
+            'beta': (0.5, 1)
         }
     )
     reward_train.maximize(n_iter=100)
@@ -369,6 +379,16 @@ if __name__ == '__main__':
     out = pre_train_GCN(reward_train.max['params']['learning_rate'], reward_train.max['params']['l2_regularization'], reward_train.max['params']['hidden_size'],
                         reward_train.max['params']['len_src'], reward_train.max['params']['len_tar'],
                         reward_train.max['params']['alpha'], reward_train.max['params']['beta'])
+
+    file_name = "mix_pretrain_model.mat"
+    savemat(file_name,{'learning_rate':reward_train.max['params']['learning_rate'],
+                       'l2_regularization':reward_train.max['params']['l2_regularization'],
+                       'hidden_size':reward_train.max['params']['hidden_size'],
+                       'len_src':reward_train.max['params']['len_src'],
+                       'len_tar':reward_train.max['params']['len_tar'],
+                        'alpha':reward_train.max['params']['alpha'],
+                       'beta':reward_train.max['params']['beta']
+    })
 
 
 
