@@ -1,5 +1,4 @@
 import numpy as np
-
 from GCN import Model
 from util import *
 import torch
@@ -18,7 +17,7 @@ def pre_train_GCN(learning_rate, l2_regularization, hidden_size):
     print(f"learning_rate: {learning_rate},"
           f"l2_regularization: {l2_regularization},"
           f"hidden_size: {hidden_size}")
-    path = 'E:/damo/data_extract_TUH/'
+    path = '../data_extract_TUH/'
 
     train_psd_features = np.load(path+'data_extract/filter/train_psd_feature.npy', allow_pickle=True)
     train_de_features = np.load(path+'data_extract/filter/train_de_feature.npy', allow_pickle=True)

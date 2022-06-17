@@ -11,14 +11,14 @@ import numpy as np
 from torch.autograd import Function
 warnings.filterwarnings("ignore")
 
-# 梯度反转层
+
 class GradientReverseLayer(Function):
 
     @staticmethod
     def forward(ctx, x, alpha):
         ctx.alpha = alpha
 
-        return x.view_as(x)  # 正向传播时传递权值不变
+        return x.view_as(x)
 
     @staticmethod
     def backward(ctx, grad_output):
