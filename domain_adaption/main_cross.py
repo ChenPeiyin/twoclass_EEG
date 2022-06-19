@@ -6,6 +6,7 @@ from torch import nn
 from torch.autograd import Function
 import torch.nn.functional as F
 import torch.utils.data as Data
+from scipy.io import loadmat
 from sklearn import preprocessing
 import pandas as pd
 from braindecode.torch_ext.util import set_random_seeds
@@ -13,6 +14,7 @@ from torch.backends import cudnn
 from sklearn.metrics import roc_auc_score, recall_score, precision_score, f1_score, accuracy_score, roc_curve, auc, confusion_matrix
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.preprocessing import normalize
+from sklearn.metrics import mean_squared_error
 from bayes_opt import BayesianOptimization
 import logging
 import random
@@ -21,21 +23,23 @@ import random
 gamma = 0.5  # Discriminator loss weights
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-num_epoches = 500
+num_epoches = 1
 loss_function = F.nll_loss
 
-item = 10
-learning_rate = 10 ** -2
-l2_regularization = 10 ** -3
-hidden_size = 2 ** int(5)
-len_src = 0.3
-len_tar = 0.3  # The optimal parameters obtained by pre-training
+item = 1
+
+parameters = loadmat('mix_pretrain_model.mat')
+learning_rate = parameters['learning_rate']
+l2_regularization = 10 ** parameters['l2_regularization']
+hidden_size = 2 ** int(parameters['hidden_size'])
+len_src = parameters['len_src']
+len_tar = parameters['len_tar']  # The optimal parameters obtained by pre-training
 
 pre_train = True
-DA = False
+DA = True
 Augm = False
-normalization = True
-file = 'tuh&src&tar'
+normalization = False
+file = 'tuh&&tar'
 
 adjacency = [[0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
              [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -64,7 +68,7 @@ if pre_train is True:
     elif file == "tuh&src":
         checkpoint_path = 'best_ts_net1.pth.tar'
     else:
-        checkpoint_path = 'best_st_net1.pth.tar'
+        checkpoint_path = 'best_tt_net2.pth.tar'
 
     checkpoint = torch.load(checkpoint_path, map_location=device)
     pre_train_net = Model(adjacency, frequency_feature_size // 16,
@@ -345,7 +349,7 @@ for _item in range(item):
             loss.backward()
             optimizer.step()
 
-        trn_acc = 100 * trn_correct / trn_total
+        trn_acc = trn_correct / trn_total
         all_trn_pred = np.concatenate(all_trn_pred).reshape(-1)
         all_trn_true = np.concatenate(all_trn_true).reshape(-1)
 
@@ -355,9 +359,9 @@ for _item in range(item):
             best_trn_f1 = f1_score(all_trn_pred, all_trn_true)
             best_trn_auc = roc_auc_score(all_trn_true, all_trn_pred)
 
-        print("Train current epoch: {}, trn_clf_loss: {:.5f}, trn_dis_loss: {:.5f}, trn_total_loss: {:.5f}, trn_clf_acc: {}/{} ({:.2f}%)\n".
+        print("Train current epoch: {}, trn_clf_loss: {:.5f}, trn_dis_loss: {:.5f}, trn_total_loss: {:.5f}, trn_clf_acc: {}/{} ({:.5f})\n".
               format(epoch + 1, clf_loss, dis_loss, loss, trn_correct, trn_total, trn_acc))
-        print("Best train accuracy / F1-score / AUC at epoch {} : {:.2f}% / {:.5f} / {:.5f}".format(best_trn_epoch+1, best_trn_acc, best_trn_f1, best_trn_auc))
+        print("Best train accuracy / F1-score / AUC at epoch {} : {:.5f} / {:.2f} / {:.5f}".format(best_trn_epoch+1, best_trn_acc, best_trn_f1, best_trn_auc))
 
         """ Testing"""
         model.eval()
@@ -377,10 +381,10 @@ for _item in range(item):
             all_tst_pred.append(tst_pred.detach().cpu().numpy())
             all_tst_true.append(target_label.detach().cpu().numpy())
 
-        tst_acc = 100 * tst_correct / tst_total
+        tst_acc = tst_correct / tst_total
         all_tst_pred = np.concatenate(all_tst_pred).reshape(-1)
         all_tst_true = np.concatenate(all_tst_true).reshape(-1)
-        print('\nTest set: tst_clf_loss: {:.4f}, tst_clf_accuracy: {}/{} ({:.2f}%)\n'.format(tst_clf_loss, tst_correct,
+        print('\nTest set: tst_clf_loss: {:.5f}, tst_clf_accuracy: {}/{} ({:.5f})\n'.format(tst_clf_loss, tst_correct,
                                                                                              tst_total, tst_acc))
         print(pd.value_counts(all_tst_pred))
         print(pd.value_counts(all_tst_true))
@@ -423,26 +427,38 @@ mean_trn_auc = np.mean(np.array(trn_auc_list))
 mean_trn_acc = np.mean(np.array(trn_acc_list))
 mean_trn_f1 = np.mean(np.array(trn_f1_list))
 print("Mean train AUC: {:.5f}\n"
-      "Mean train ACC: {:.5f}%\n"
+      "Mean train ACC: {:.5f}\n"
       "Mean train f1-score: {:.2f}".format(mean_trn_auc, mean_trn_acc, mean_trn_f1))
 
 mean_tst_auc = np.mean(np.array(tst_auc_list))
+MSE_auc = mean_squared_error(np.array(tst_auc_list), np.zeros((len(tst_auc_list), 1))+mean_tst_auc)
+
 mean_tst_acc = np.mean(np.array(tst_acc_list))
+MSE_acc = mean_squared_error(np.array(tst_acc_list), np.zeros((len(tst_acc_list), 1))+mean_tst_acc)
+
 mean_tst_precision = np.mean(np.array(tst_precision_list))
+MSE_precision = mean_squared_error(np.array(tst_precision_list), np.zeros((len(tst_precision_list), 1))+mean_tst_precision)
+
 mean_tst_recall = np.mean(np.array(tst_recall_list))
+MSE_recall = mean_squared_error(np.array(tst_recall_list), np.zeros((len(tst_recall_list), 1))+mean_tst_recall)
+
 mean_tst_f1 = np.mean(np.array(tst_f1_list))
+MSE_f1 = mean_squared_error(np.array(tst_f1_list), np.zeros((len(tst_f1_list), 1))+mean_tst_f1)
+
 mean_tst_specificity = np.mean(np.array(tst_specificity_list))
-print("Mean test AUC: {:.5f}\n"
-      "Mean test ACC: {:.5f}%\n"
-      "Mean test precision: {:.5f}\n"
-      "Mean test recall: {:.5f}\n"
-      "Mean test f1: {:.2f}\n"
-      "Mean test specificity: {:.5f}".format(mean_tst_auc,
-                                              mean_tst_acc,
-                                              mean_tst_precision,
-                                              mean_tst_recall,
-                                              mean_tst_f1,
-                                              mean_tst_specificity))
+MSE_specificity = mean_squared_error(np.array(tst_specificity_list), np.zeros((len(tst_specificity_list), 1))+mean_tst_specificity)
+
+print("Mean test AUC: {:.5f} + {}\n"
+      "Mean test ACC: {:.5f} + {}\n"
+      "Mean test precision: {:.5f} + {}\n"
+      "Mean test recall: {:.5f} + {}\n"
+      "Mean test f1: {:.2f} + {}\n"
+      "Mean test specificity: {:.5f} + {}".format(mean_tst_auc, MSE_auc,
+                                              mean_tst_acc, MSE_acc,
+                                              mean_tst_precision, MSE_precision,
+                                              mean_tst_recall, MSE_recall,
+                                              mean_tst_f1, MSE_f1,
+                                              mean_tst_specificity, MSE_specificity))
 
 
 
